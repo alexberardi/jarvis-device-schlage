@@ -1,0 +1,29 @@
+name: "schlage"
+display_name: "Schlage"
+description: "Schlage Encode WiFi smart locks — lock, unlock, and status via the Allegion cloud API."
+version: "1.0.0"
+min_jarvis_version: "0.9.0"
+license: "MIT"
+author:
+  github: "alexberardi"
+categories: ["smart-home", "security"]
+platforms: ["darwin", "linux"]
+keywords: ["schlage", "lock", "smart lock", "encode", "security"]
+
+components:
+  - type: device_protocol
+    name: schlage
+    path: device_families/schlage/protocol.py
+
+packages:
+  - name: pyschlage
+secrets:
+  - key: SCHLAGE_USERNAME
+    scope: integration
+    value_type: string
+    description: "Schlage Home app email address"
+  - key: SCHLAGE_PASSWORD
+    scope: integration
+    value_type: string
+    description: "Schlage Home app password"
+    sensitive: true
