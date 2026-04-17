@@ -250,3 +250,30 @@ the node and never leave it."""
             entity_id=device.entity_id,
             action=action,
         )
+
+    async def get_state(
+        self, device: DiscoveredDevice
+    ) -> dict[str, Any]:
+        """Get current lock state, battery level, and jammed status."""
+        username, password = _get_credentials()
+        if not username or not password:
+            return {"error": "Schlage credentials not configured"}
+
+        try:
+            schlage = await asyncio.to_thread(_build_schlage_client)
+            locks = await asyncio.to_thread(schlage.locks)
+        except Exception as e:
+            return {"error": f"Schlage auth failed: {e}"}
+
+        for lock in locks:
+            if (device.cloud_id and lock.device_id == device.cloud_id) or \
+               _slugify(lock.name) == device.entity_id:
+                await asyncio.to_thread(lock.refresh)
+                return {
+                    "is_locked": lock.is_locked,
+                    "is_jammed": lock.is_jammed,
+                    "battery_level": lock.battery_level,
+                    "connected": getattr(lock, "connected", None),
+                }
+
+        return {"error": f"Lock '{device.name}' not found"}
