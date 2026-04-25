@@ -15,8 +15,6 @@ components:
     name: schlage
     path: device_families/schlage/protocol.py
 
-packages:
-  - name: pyschlage
 secrets:
   - key: SCHLAGE_USERNAME
     scope: integration
