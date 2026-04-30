@@ -60,7 +60,7 @@ def _build_schlage_client():
     Runs the Cognito SRP handshake synchronously — callers should
     wrap in asyncio.to_thread().
     """
-    from .schlage_client import CognitoSRPAuth, SchlageClient
+    from schlage_client import CognitoSRPAuth, SchlageClient
 
     username, password = _get_credentials()
     if not username or not password:
