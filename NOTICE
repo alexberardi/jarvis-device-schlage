@@ -1,0 +1,8 @@
+jarvis-device-schlage
+Copyright 2026 Alex Berardi
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes software ported from the pyschlage project
+(https://pypi.org/project/pyschlage/), the upstream Python client for
+Schlage smart locks.
