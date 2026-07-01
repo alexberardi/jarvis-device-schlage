@@ -3,7 +3,7 @@ display_name: "Schlage"
 description: "Schlage Encode WiFi smart locks — lock, unlock, and status via the Allegion cloud API."
 version: "1.0.0"
 min_jarvis_version: "0.9.0"
-license: "MIT"
+license: Apache-2.0
 author:
   github: "alexberardi"
 categories: ["smart-home", "security"]
