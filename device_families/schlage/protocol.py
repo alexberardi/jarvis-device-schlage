@@ -54,6 +54,13 @@ def _get_credentials() -> tuple[str | None, str | None]:
     return username, password
 
 
+def _lock_state(lock) -> str:
+    """The lock domain's state: the node and jarvisd read only "state", not is_locked."""
+    if lock.is_jammed:
+        return "jammed"
+    return "locked" if lock.is_locked else "unlocked"
+
+
 def _build_schlage_client():
     """Authenticate and return a SchlageClient instance.
 
@@ -284,6 +291,7 @@ the node and never leave it."""
                _slugify(lock.name) == device.entity_id:
                 refreshed = await asyncio.to_thread(client.refresh, lock.device_id)
                 return {
+                    "state": _lock_state(refreshed),
                     "is_locked": refreshed.is_locked,
                     "is_jammed": refreshed.is_jammed,
                     "battery_level": refreshed.battery_level,
