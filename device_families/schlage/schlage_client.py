@@ -12,6 +12,7 @@ import hashlib
 import hmac as _hmac
 import os
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -34,6 +35,12 @@ _API_KEY = "hnuu9jbbJr7MssFDWm5nU2Z7nG5Q5rxsaqWsE7e9"
 _TIMEOUT = 60
 
 _INFO_BITS = b"Caldera Derived Key"
+
+# devicetypeId prefixes that take a lockState PUT; every other lock (e.g. a Sense, be479,
+# behind a bridge) needs a changelockstate command (pyschlage Lock._is_wifi_lock).
+_WIFI_PREFIXES = (
+    "be459", "be489", "be499", "fe789", "be889", "gselent", "gselsec", "sselent", "sselsec",
+)
 
 # RFC 5054 3072-bit SRP group (same prime AWS Cognito uses)
 _N_HEX = (
@@ -248,6 +255,12 @@ class SchlageLock:
     is_jammed: bool
     battery_level: int | None
     connected: bool
+    device_type: str = ""
+    cat: str = ""
+
+    @property
+    def is_wifi(self) -> bool:
+        return self.device_type.startswith(_WIFI_PREFIXES)
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> SchlageLock:
@@ -261,6 +274,8 @@ class SchlageLock:
             is_jammed=lock_state == 2,
             battery_level=attrs.get("batteryLevel"),
             connected=attrs.get("connected", False),
+            device_type=data.get("devicetypeId", ""),
+            cat=data.get("CAT", ""),
         )
 
 
@@ -269,6 +284,7 @@ class SchlageClient:
 
     def __init__(self, auth: CognitoSRPAuth) -> None:
         self._auth = auth
+        self._user_id: str | None = None
 
     def _request(
         self, method: str, path: str, **kwargs: Any,
@@ -287,13 +303,38 @@ class SchlageClient:
         resp = self._request("GET", "devices", params={"archetype": "lock"})
         return [SchlageLock.from_json(d) for d in resp.json()]
 
-    def lock(self, device_id: str) -> None:
+    def lock(self, lock: SchlageLock) -> None:
         """Lock a device."""
-        self._request("PUT", f"devices/{device_id}", json={"attributes": {"lockState": 1}})
+        self._toggle(lock, 1)
 
-    def unlock(self, device_id: str) -> None:
+    def unlock(self, lock: SchlageLock) -> None:
         """Unlock a device."""
-        self._request("PUT", f"devices/{device_id}", json={"attributes": {"lockState": 0}})
+        self._toggle(lock, 0)
+
+    def _toggle(self, lock: SchlageLock, lock_state: int) -> None:
+        """pyschlage Lock._toggle: WiFi locks take an attribute PUT, the rest a command."""
+        if lock.is_wifi:
+            self._request("PUT", f"devices/{lock.device_id}", json={"attributes": {"lockState": lock_state}})
+            return
+        if self._user_id is None:
+            self._user_id = self._request("GET", "users/@me").json()["identityId"]
+        data = {"CAT": lock.cat, "deviceId": lock.device_id, "state": lock_state, "userId": self._user_id}
+        self._request("POST", f"devices/{lock.device_id}/commands",
+                      json={"data": data, "name": "changelockstate"})
+
+    def wait_for(self, device_id: str, locked: bool, tries: int = 7, sleep=time.sleep) -> SchlageLock:
+        """Poll until the lock reports the requested state (or jams), about 1 s apart.
+
+        The PUT's response only echoes the request; the bolt moves seconds later, when the lock
+        wakes up for it. Returns the last state seen; the caller checks it.
+        """
+        lock = None
+        for _ in range(tries):
+            sleep(1.0)
+            lock = self.refresh(device_id)
+            if lock.is_jammed or lock.is_locked == locked:
+                break
+        return lock
 
     def refresh(self, device_id: str) -> SchlageLock:
         """Fetch current state of a single lock."""

@@ -212,16 +212,16 @@ the node and never leave it."""
                 error=f"Failed to list locks: {e}",
             )
 
-        target_id: str | None = None
+        target = None
         for lock in locks:
             if device.cloud_id and lock.device_id == device.cloud_id:
-                target_id = lock.device_id
+                target = lock
                 break
             if _slugify(lock.name) == device.entity_id:
-                target_id = lock.device_id
+                target = lock
                 break
 
-        if not target_id:
+        if target is None:
             return DeviceControlResult(
                 success=False,
                 entity_id=device.entity_id,
@@ -230,12 +230,27 @@ the node and never leave it."""
             )
 
         try:
-            if action == "lock":
-                await asyncio.to_thread(client.lock, target_id)
-            elif action == "unlock":
-                await asyncio.to_thread(client.unlock, target_id)
+            logger.info(f"Schlage {action}: {target.device_type or 'unknown type'}, wifi={target.is_wifi}")
+            if action in ("lock", "unlock"):
+                want_locked = action == "lock"
+                await asyncio.to_thread(client.lock if want_locked else client.unlock, target)
+                final = await asyncio.to_thread(client.wait_for, target.device_id, want_locked)
+                if final.is_jammed:
+                    error = "The lock reports it is jammed"
+                elif final.is_locked != want_locked:
+                    error = (f"Sent {action} to the lock, but it hasn't confirmed yet; "
+                             "it may still be moving. Check the lock before trying again.")
+                else:
+                    error = None
+                if error:
+                    return DeviceControlResult(
+                        success=False,
+                        entity_id=device.entity_id,
+                        action=action,
+                        error=error,
+                    )
             elif action == "get_status":
-                refreshed = await asyncio.to_thread(client.refresh, target_id)
+                refreshed = await asyncio.to_thread(client.refresh, target.device_id)
                 return DeviceControlResult(
                     success=True,
                     entity_id=device.entity_id,
