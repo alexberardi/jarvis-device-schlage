@@ -1,7 +1,7 @@
 name: "schlage"
 display_name: "Schlage"
 description: "Schlage Encode WiFi smart locks — lock, unlock, and status via the Allegion cloud API."
-version: "1.0.1"
+version: "1.0.2"
 min_jarvis_version: "0.9.0"
 license: Apache-2.0
 author:
@@ -9,6 +9,9 @@ author:
 categories: ["smart-home", "security"]
 platforms: ["darwin", "linux"]
 keywords: ["schlage", "lock", "smart lock", "encode", "security"]
+
+packages:
+  - name: httpx
 
 components:
   - type: device_protocol
